@@ -1,24 +1,82 @@
 <!DOCTYPE html>
-<html>
+<html lang="de">
 <head>
   <meta charset="utf-8">
-  <title>DRS Mode Switch</title>
+  <title>DRS Mode Control</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
   <style>
-    body { font-family: sans-serif; text-align: center; }
-    button { font-size: 20px; padding: 12px 20px; margin: 10px; }
-    #status { margin-top: 20px; white-space: pre-wrap; }
+    body {
+      font-family: system-ui, -apple-system, sans-serif;
+      background: #111;
+      color: #eee;
+      text-align: center;
+      padding: 20px;
+    }
+
+    h1 {
+      margin-bottom: 20px;
+    }
+
+    button {
+      width: 100%;
+      max-width: 320px;
+      font-size: 20px;
+      padding: 14px;
+      margin: 10px auto;
+      border: none;
+      border-radius: 10px;
+      color: white;
+    }
+
+    .btn-connect { background: #444; }
+    .btn-run     { background: #2ecc71; }
+    .btn-idle    { background: #3498db; }
+    .btn-idle-t  { background: #2980b9; }
+
+    #status {
+      margin-top: 20px;
+      padding: 12px;
+      background: #222;
+      border-radius: 8px;
+      font-size: 14px;
+      white-space: pre-wrap;
+    }
+
+    .connected {
+      color: #2ecc71;
+      font-weight: bold;
+    }
   </style>
 </head>
+
 <body>
 
-<h2>DRS Mode Control</h2>
+<h1>DRS Control</h1>
 
-<button onclick="connect()">Connect</button><br>
+<button class="btn-connect" onclick="connect()">🔗 Connect</button>
 
-<button onclick="sendCmd('MODE=RUN')">RUN (Rennen)</button>
-<button onclick="sendCmd('MODE=IDLE')">IDLE (Show)</button>
+<button class="btn-run" onclick="sendCmd('MODE=RUN')">
+  ▶ RUN (Rennbetrieb)
+</button>
 
-<pre id="status">Not connected</pre>
+<button class="btn-idle" onclick="sendCmd('MODE=IDLE')">
+  ⏸ IDLE (Dauer)
+</button>
+
+<button class="btn-idle-t" onclick="sendCmd('IDLE=1')">
+  🕐 IDLE 1 Minute
+</button>
+
+<button class="btn-idle-t" onclick="sendCmd('IDLE=2')">
+  🕑 IDLE 2 Minuten
+</button>
+
+<button class="btn-idle-t" onclick="sendCmd('IDLE=3')">
+  🕒 IDLE 3 Minuten
+</button>
+
+<div id="status">Not connected</div>
 
 <script>
 let ctrlChar, statChar;
@@ -28,29 +86,41 @@ const CTRL_UUID    = '12345678-1234-1234-1234-1234567890ac';
 const STAT_UUID    = '12345678-1234-1234-1234-1234567890ad';
 
 async function connect() {
-  const device = await navigator.bluetooth.requestDevice({
-    filters: [{ name: 'DRS-Control' }],
-    optionalServices: [SERVICE_UUID]
-  });
+  try {
+    const device = await navigator.bluetooth.requestDevice({
+      filters: [{ name: 'DRS-Control' }],
+      optionalServices: [SERVICE_UUID]
+    });
 
-  const server = await device.gatt.connect();
-  const service = await server.getPrimaryService(SERVICE_UUID);
+    const server = await device.gatt.connect();
+    const service = await server.getPrimaryService(SERVICE_UUID);
 
-  ctrlChar = await service.getCharacteristic(CTRL_UUID);
-  statChar = await service.getCharacteristic(STAT_UUID);
+    ctrlChar = await service.getCharacteristic(CTRL_UUID);
+    statChar = await service.getCharacteristic(STAT_UUID);
 
-  await statChar.startNotifications();
-  statChar.addEventListener('characteristicvaluechanged', e => {
-    document.getElementById('status').textContent =
-      new TextDecoder().decode(e.target.value);
-  });
+    await statChar.startNotifications();
+    statChar.addEventListener('characteristicvaluechanged', e => {
+      const text = new TextDecoder().decode(e.target.value);
+      document.getElementById('status').textContent = text;
+      document.getElementById('status').classList.add('connected');
+    });
 
-  document.getElementById('status').textContent = 'Connected';
+    document.getElementById('status').textContent = 'Connected';
+    document.getElementById('status').classList.add('connected');
+
+  } catch (err) {
+    alert('BLE connection failed:\n' + err);
+  }
 }
 
 async function sendCmd(cmd) {
-  if (!ctrlChar) return;
-  await ctrlChar.writeValue(new TextEncoder().encode(cmd));
+  if (!ctrlChar) {
+    alert('Not connected');
+    return;
+  }
+  await ctrlChar.writeValue(
+    new TextEncoder().encode(cmd)
+  );
 }
 </script>
 
