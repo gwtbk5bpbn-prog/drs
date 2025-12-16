@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>DRS Mode Switch</title>
+  <style>
+    body { font-family: sans-serif; text-align: center; }
+    button { font-size: 20px; padding: 12px 20px; margin: 10px; }
+    #status { margin-top: 20px; white-space: pre-wrap; }
+  </style>
+</head>
+<body>
+
+<h2>DRS Mode Control</h2>
+
+<button onclick="connect()">Connect</button><br>
+
+<button onclick="sendCmd('MODE=RUN')">RUN (Rennen)</button>
+<button onclick="sendCmd('MODE=IDLE')">IDLE (Show)</button>
+
+<pre id="status">Not connected</pre>
+
+<script>
+let ctrlChar, statChar;
+
+const SERVICE_UUID = '12345678-1234-1234-1234-1234567890ab';
+const CTRL_UUID    = '12345678-1234-1234-1234-1234567890ac';
+const STAT_UUID    = '12345678-1234-1234-1234-1234567890ad';
+
+async function connect() {
+  const device = await navigator.bluetooth.requestDevice({
+    filters: [{ name: 'DRS-Control' }],
+    optionalServices: [SERVICE_UUID]
+  });
+
+  const server = await device.gatt.connect();
+  const service = await server.getPrimaryService(SERVICE_UUID);
+
+  ctrlChar = await service.getCharacteristic(CTRL_UUID);
+  statChar = await service.getCharacteristic(STAT_UUID);
+
+  await statChar.startNotifications();
+  statChar.addEventListener('characteristicvaluechanged', e => {
+    document.getElementById('status').textContent =
+      new TextDecoder().decode(e.target.value);
+  });
+
+  document.getElementById('status').textContent = 'Connected';
+}
+
+async function sendCmd(cmd) {
+  if (!ctrlChar) return;
+  await ctrlChar.writeValue(new TextEncoder().encode(cmd));
+}
+</script>
+
+</body>
+</html>
